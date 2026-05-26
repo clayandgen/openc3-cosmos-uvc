@@ -8,6 +8,8 @@ Control USB Video Class (UVC) webcams from COSMOS. Generic V4L2 standard control
 
 Single-repo, modeled after `openc3-cosmos-elegoo-tumbller`: the plugin and the host-side bridge script (`lib/uvc_bridge.py`) ship in one gem.
 
+> **Linux only.** The bridge drives the camera via [Video4Linux2](https://en.wikipedia.org/wiki/Video4Linux) (`v4l2-ctl`) and the Linux `uvcvideo` kernel driver. macOS (AVFoundation) and Windows (Media Foundation) are not supported by this bridge as-is — you would need to swap the V4L2 backend for the platform's native UVC API. The COSMOS plugin half (cmd/tlm/screens) is OS-agnostic; only the host running `uvc_bridge.py` must be Linux.
+
 ## Architecture
 
 ```
@@ -79,15 +81,22 @@ default **and** the matching `APPEND_ITEM` in `tlm.txt` (same order).
 
 ## Quick Start
 
-On the host with USB access to the camera:
+Bridge host must be **Linux** (kernel `uvcvideo` driver + `v4l2-ctl`). On that host with USB access to the camera:
 
 ```
+sudo apt install v4l-utils
 pip install openc3 pyusb
-sudo apt install v4l-utils    # Linux only
 OPENC3_NO_STORE=1 python lib/uvc_bridge.py --device /dev/video0 --port 8080
 ```
 
-Grant USB access for Insta360 vendor controls (Linux):
+Verify the camera enumerated:
+
+```
+v4l2-ctl --list-devices
+v4l2-ctl -d /dev/video0 --list-ctrls
+```
+
+Grant USB access for Insta360 vendor controls:
 
 ```
 echo 'SUBSYSTEM=="usb", ATTR{idVendor}=="2e1a", MODE="0666"' \
