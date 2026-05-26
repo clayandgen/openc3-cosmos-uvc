@@ -2,11 +2,10 @@
 """
 UVC bridge for OpenC3 COSMOS.
 
-Listens on TCP for framed binary command packets from the openc3-cosmos-uvc
-plugin, drives the camera via V4L2 + UVC Extension Unit (XU) controls, and
-replies to GET_STATUS with live values read from the device. Synthesizes
-nothing — every byte sent back originates from a real device query or USB
-enumeration.
+Listens on TCP for framed binary command packets from the
+openc3-cosmos-uvc-linux plugin, drives the camera via V4L2 + UVC Extension
+Unit (XU) controls, and replies to GET_STATUS with live values read from the
+device.
 
 Wire format:
     [ SYNC u16 = 0xAABB ][ LEN u16 = total bytes ][ PKT_ID u8 ][ PAYLOAD... ]
