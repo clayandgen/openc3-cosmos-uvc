@@ -7,37 +7,22 @@ VERTICAL
   VERTICALBOX "Pan / Tilt / Zoom"
     HORIZONTAL 10
       VERTICAL
-        LABEL "Pan / Tilt / Zoom"
+        LABEL "Current"
         LABELVALUE <%= target_name %> STATUS PAN  CONVERTED 18
         LABELVALUE <%= target_name %> STATUS TILT CONVERTED 18
         LABELVALUE <%= target_name %> STATUS ZOOM CONVERTED 18
       END
       VERTICAL
-        LABEL "Set Pan"
+        LABEL "Pan + Tilt (UVC native combined)"
         HORIZONTAL 5
-          NAMED_WIDGET PAN_VAL TEXTFIELD 10 "0"
-          BUTTON 'Set' "api.cmd('<%= target_name %> PAN with VALUE '+screen.getNamedWidget('PAN_VAL').text())"
+          NAMED_WIDGET PAN_VAL  TEXTFIELD 8 "0"
+          NAMED_WIDGET TILT_VAL TEXTFIELD 8 "0"
+          BUTTON 'Move' "api.cmd('<%= target_name %> PAN_TILT with PAN '+screen.getNamedWidget('PAN_VAL').text()+', TILT '+screen.getNamedWidget('TILT_VAL').text())"
         END
-        LABEL "Set Tilt"
-        HORIZONTAL 5
-          NAMED_WIDGET TILT_VAL TEXTFIELD 10 "0"
-          BUTTON 'Set' "api.cmd('<%= target_name %> TILT with VALUE '+screen.getNamedWidget('TILT_VAL').text())"
-        END
-        LABEL "Set Zoom (100-400)"
+        LABEL "Zoom (100-400)"
         HORIZONTAL 5
           NAMED_WIDGET ZOOM_VAL TEXTFIELD 10 "100"
           BUTTON 'Set' "api.cmd('<%= target_name %> ZOOM with VALUE '+screen.getNamedWidget('ZOOM_VAL').text())"
-        END
-      END
-      VERTICAL
-        LABEL "Nudge"
-        HORIZONTAL 5
-          BUTTON 'Pan -' 'api.cmd("<%= target_name %> PAN_TILT_RELATIVE with PAN_DELTA -500, TILT_DELTA 0")'
-          BUTTON 'Pan +' 'api.cmd("<%= target_name %> PAN_TILT_RELATIVE with PAN_DELTA 500, TILT_DELTA 0")'
-        END
-        HORIZONTAL 5
-          BUTTON 'Tilt -' 'api.cmd("<%= target_name %> PAN_TILT_RELATIVE with PAN_DELTA 0, TILT_DELTA -500")'
-          BUTTON 'Tilt +' 'api.cmd("<%= target_name %> PAN_TILT_RELATIVE with PAN_DELTA 0, TILT_DELTA 500")'
         END
         BUTTON 'Center Gimbal' 'api.cmd("<%= target_name %> GIMBAL_RESET")'
           SETTING WIDTH 160
@@ -49,33 +34,30 @@ VERTICAL
   VERTICALBOX "AI / Scene (Insta360)"
     HORIZONTAL 10
       VERTICAL
-        LABEL "AI Tracking"
-        HORIZONTAL 5
-          BUTTON 'ON'  'api.cmd("<%= target_name %> AI_TRACKING with STATE ON")'
-          BUTTON 'OFF' 'api.cmd("<%= target_name %> AI_TRACKING with STATE OFF")'
-        END
+        LABEL "Mode"
+        BUTTON 'Normal'      'api.cmd("<%= target_name %> SCENE_MODE with VALUE NORMAL")'
+          SETTING WIDTH 160
+        BUTTON 'AI Tracking' 'api.cmd("<%= target_name %> SCENE_MODE with VALUE AI_TRACKING")'
+          SETTING WIDTH 160
+        BUTTON 'Whiteboard'  'api.cmd("<%= target_name %> SCENE_MODE with VALUE WHITEBOARD")'
+          SETTING WIDTH 160
+        BUTTON 'Overhead'    'api.cmd("<%= target_name %> SCENE_MODE with VALUE OVERHEAD")'
+          SETTING WIDTH 160
+        BUTTON 'DeskView'    'api.cmd("<%= target_name %> SCENE_MODE with VALUE DESKVIEW")'
+          SETTING WIDTH 160
+      END
+      VERTICAL
         LABEL "Framing"
         HORIZONTAL 5
-          BUTTON 'Head'      'api.cmd("<%= target_name %> TRACKING_FRAME with FRAME HEAD")'
-          BUTTON 'Half'      'api.cmd("<%= target_name %> TRACKING_FRAME with FRAME HALF_BODY")'
-          BUTTON 'Full'      'api.cmd("<%= target_name %> TRACKING_FRAME with FRAME FULL_BODY")'
+          BUTTON 'Head' 'api.cmd("<%= target_name %> TRACKING_FRAME with VALUE HEAD")'
+          BUTTON 'Half' 'api.cmd("<%= target_name %> TRACKING_FRAME with VALUE HALF_BODY")'
+          BUTTON 'Full' 'api.cmd("<%= target_name %> TRACKING_FRAME with VALUE FULL_BODY")'
         END
         LABEL "Target"
         HORIZONTAL 5
-          BUTTON 'Single' 'api.cmd("<%= target_name %> TRACKING_TARGET with TARGET SINGLE")'
-          BUTTON 'Group'  'api.cmd("<%= target_name %> TRACKING_TARGET with TARGET GROUP")'
+          BUTTON 'Single' 'api.cmd("<%= target_name %> TRACKING_TARGET with VALUE SINGLE")'
+          BUTTON 'Group'  'api.cmd("<%= target_name %> TRACKING_TARGET with VALUE GROUP")'
         END
-      END
-      VERTICAL
-        LABEL "Scene Mode"
-        BUTTON 'Normal'     'api.cmd("<%= target_name %> SCENE_MODE with MODE NORMAL")'
-          SETTING WIDTH 160
-        BUTTON 'Whiteboard' 'api.cmd("<%= target_name %> SCENE_MODE with MODE WHITEBOARD")'
-          SETTING WIDTH 160
-        BUTTON 'Overhead'   'api.cmd("<%= target_name %> SCENE_MODE with MODE OVERHEAD")'
-          SETTING WIDTH 160
-        BUTTON 'DeskView'   'api.cmd("<%= target_name %> SCENE_MODE with MODE DESKVIEW")'
-          SETTING WIDTH 160
       END
     END
   END
@@ -86,76 +68,30 @@ VERTICAL
       VERTICAL
         LABEL "Brightness"
         HORIZONTAL 5
-          NAMED_WIDGET BRT TEXTFIELD 8 "0"
+          NAMED_WIDGET BRT TEXTFIELD 8 "50"
           BUTTON 'Set' "api.cmd('<%= target_name %> BRIGHTNESS with VALUE '+screen.getNamedWidget('BRT').text())"
         END
         LABEL "Contrast"
         HORIZONTAL 5
-          NAMED_WIDGET CON TEXTFIELD 8 "0"
+          NAMED_WIDGET CON TEXTFIELD 8 "50"
           BUTTON 'Set' "api.cmd('<%= target_name %> CONTRAST with VALUE '+screen.getNamedWidget('CON').text())"
         END
         LABEL "Saturation"
         HORIZONTAL 5
-          NAMED_WIDGET SAT TEXTFIELD 8 "0"
+          NAMED_WIDGET SAT TEXTFIELD 8 "50"
           BUTTON 'Set' "api.cmd('<%= target_name %> SATURATION with VALUE '+screen.getNamedWidget('SAT').text())"
         END
       END
       VERTICAL
         LABEL "Sharpness"
         HORIZONTAL 5
-          NAMED_WIDGET SHA TEXTFIELD 8 "0"
+          NAMED_WIDGET SHA TEXTFIELD 8 "50"
           BUTTON 'Set' "api.cmd('<%= target_name %> SHARPNESS with VALUE '+screen.getNamedWidget('SHA').text())"
         END
-        LABEL "Gain"
+        LABEL "Backlight"
         HORIZONTAL 5
-          NAMED_WIDGET GAIN TEXTFIELD 8 "0"
-          BUTTON 'Set' "api.cmd('<%= target_name %> GAIN with VALUE '+screen.getNamedWidget('GAIN').text())"
-        END
-        LABEL "Backlight Compensation"
-        HORIZONTAL 5
-          BUTTON 'ON'  'api.cmd("<%= target_name %> BACKLIGHT_COMPENSATION with STATE ON")'
-          BUTTON 'OFF' 'api.cmd("<%= target_name %> BACKLIGHT_COMPENSATION with STATE OFF")'
-        END
-      END
-    END
-  END
-
-  VERTICALBOX "White Balance / Exposure / Focus"
-    HORIZONTAL 10
-      VERTICAL
-        LABEL "Auto WB"
-        HORIZONTAL 5
-          BUTTON 'ON'  'api.cmd("<%= target_name %> AUTO_WHITE_BALANCE with STATE ON")'
-          BUTTON 'OFF' 'api.cmd("<%= target_name %> AUTO_WHITE_BALANCE with STATE OFF")'
-        END
-        LABEL "WB Temp (K)"
-        HORIZONTAL 5
-          NAMED_WIDGET WB TEXTFIELD 8 "4000"
-          BUTTON 'Set' "api.cmd('<%= target_name %> WHITE_BALANCE_TEMP with VALUE '+screen.getNamedWidget('WB').text())"
-        END
-      END
-      VERTICAL
-        LABEL "Exposure Mode"
-        HORIZONTAL 5
-          BUTTON 'Auto'   'api.cmd("<%= target_name %> EXPOSURE_AUTO with MODE AUTO")'
-          BUTTON 'Manual' 'api.cmd("<%= target_name %> EXPOSURE_AUTO with MODE MANUAL")'
-        END
-        LABEL "Exposure Abs"
-        HORIZONTAL 5
-          NAMED_WIDGET EXP TEXTFIELD 8 "250"
-          BUTTON 'Set' "api.cmd('<%= target_name %> EXPOSURE_ABSOLUTE with VALUE '+screen.getNamedWidget('EXP').text())"
-        END
-      END
-      VERTICAL
-        LABEL "Auto Focus"
-        HORIZONTAL 5
-          BUTTON 'ON'  'api.cmd("<%= target_name %> AUTO_FOCUS with STATE ON")'
-          BUTTON 'OFF' 'api.cmd("<%= target_name %> AUTO_FOCUS with STATE OFF")'
-        END
-        LABEL "Focus Abs"
-        HORIZONTAL 5
-          NAMED_WIDGET FOC TEXTFIELD 8 "0"
-          BUTTON 'Set' "api.cmd('<%= target_name %> FOCUS_ABSOLUTE with VALUE '+screen.getNamedWidget('FOC').text())"
+          BUTTON 'ON'  'api.cmd("<%= target_name %> BACKLIGHT_COMPENSATION with VALUE ON")'
+          BUTTON 'OFF' 'api.cmd("<%= target_name %> BACKLIGHT_COMPENSATION with VALUE OFF")'
         END
       END
     END

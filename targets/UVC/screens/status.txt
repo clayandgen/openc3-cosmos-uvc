@@ -18,15 +18,5 @@ VERTICALBOX "Image"
   LABELVALUE <%= target_name %> STATUS CONTRAST
   LABELVALUE <%= target_name %> STATUS SATURATION
   LABELVALUE <%= target_name %> STATUS SHARPNESS
-  LABELVALUE <%= target_name %> STATUS GAIN
   LABELVALUE <%= target_name %> STATUS BACKLIGHT
-END
-
-VERTICALBOX "White Balance / Exposure / Focus"
-  LABELVALUE <%= target_name %> STATUS AWB
-  LABELVALUE <%= target_name %> STATUS WB_TEMP WITH_UNITS
-  LABELVALUE <%= target_name %> STATUS EXP_AUTO
-  LABELVALUE <%= target_name %> STATUS EXP_ABS
-  LABELVALUE <%= target_name %> STATUS AF
-  LABELVALUE <%= target_name %> STATUS FOCUS_ABS
 END

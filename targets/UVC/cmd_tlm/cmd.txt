@@ -1,240 +1,180 @@
 ###############################################################################
-# Insta360 Link / UVC camera command packets.
+# UVC camera command packets.
 #
 # Wire format (host -> device, framed by LengthProtocol):
 #   [SYNC u16 = 0xAABB][LEN u16 = total bytes][PKT_ID u8][PAYLOAD...]
 #
-# Most V4L2-standard controls share PKT_ID 0x01 (SET_V4L2_CTRL). Payload =
-#   [VALUE i32][NAME utf-8 string to end of packet]
-# Each COMMAND fixes its own NAME default so the bridge stays a thin proxy:
-# it just calls `v4l2-ctl --set-ctrl <NAME>=<VALUE>`.
+# Almost everything uses PKT_ID 0x01 (SET_CTRL). Payload:
+#   [UNIT_ID u8][SELECTOR u8][LENGTH u8][SIGNED u8][VALUE i64]
+# Each COMMAND fixes UNIT_ID/SELECTOR/LENGTH/SIGNED defaults so the bridge
+# stays a thin proxy: one UVC SET_CUR control transfer per command, no name
+# table.
 #
-# Non-V4L2 commands (relative move, gimbal reset, XU vendor controls, presets,
-# status) keep their own PKT_IDs.
+# Insta360 vendor controls (XU) are gated by uvc_insta360_enabled.
 ###############################################################################
 
-# -- V4L2 standard controls (all PKT_ID 0x01) ---------------------------------
+# -- Camera Terminal controls (unit 1) ----------------------------------------
 
 COMMAND <%= target_name %> ZOOM BIG_ENDIAN "Set absolute zoom (100=1x, 400=4x)"
-  APPEND_PARAMETER    SYNC   16 UINT 0xAABB 0xAABB 0xAABB "Sync pattern"
-  APPEND_PARAMETER    LEN    16 UINT MIN MAX 0 "Packet length"
-  APPEND_ID_PARAMETER PKT_ID 8 UINT 0x01 0x01 0x01 "SET_V4L2_CTRL"
-  APPEND_PARAMETER    VALUE  32 INT 100 400 100 "Zoom level"
-  APPEND_PARAMETER    NAME   0 STRING "zoom_absolute" "V4L2 control name"
+  APPEND_PARAMETER    SYNC     16 UINT 0xAABB 0xAABB 0xAABB "Sync pattern"
+  APPEND_PARAMETER    LEN      16 UINT MIN MAX 0 "Packet length"
+  APPEND_ID_PARAMETER PKT_ID    8 UINT 0x01 0x01 0x01 "SET_CTRL"
+  APPEND_PARAMETER    UNIT_ID   8 UINT 1 1 1 "CT"
+  APPEND_PARAMETER    SELECTOR  8 UINT 0x0B 0x0B 0x0B "ZOOM_ABSOLUTE"
+  APPEND_PARAMETER    LENGTH    8 UINT 2 2 2 "bytes"
+  APPEND_PARAMETER    SIGNED    8 UINT 0 0 0 "unsigned"
+  APPEND_PARAMETER    VALUE    64 INT 100 400 100 "Zoom level"
   SCREEN <%= target_name %> CONTROL
 
-COMMAND <%= target_name %> PAN BIG_ENDIAN "Set absolute pan position"
+COMMAND <%= target_name %> PAN_TILT BIG_ENDIAN "Set absolute pan + tilt (combined UVC control)"
   APPEND_PARAMETER    SYNC   16 UINT 0xAABB 0xAABB 0xAABB "Sync pattern"
   APPEND_PARAMETER    LEN    16 UINT MIN MAX 0 "Packet length"
-  APPEND_ID_PARAMETER PKT_ID 8 UINT 0x01 0x01 0x01 "SET_V4L2_CTRL"
-  APPEND_PARAMETER    VALUE  32 INT -36000 36000 0 "Pan (1/100 degree)"
-  APPEND_PARAMETER    NAME   0 STRING "pan_absolute" "V4L2 control name"
-  SCREEN <%= target_name %> CONTROL
-
-COMMAND <%= target_name %> TILT BIG_ENDIAN "Set absolute tilt position"
-  APPEND_PARAMETER    SYNC   16 UINT 0xAABB 0xAABB 0xAABB "Sync pattern"
-  APPEND_PARAMETER    LEN    16 UINT MIN MAX 0 "Packet length"
-  APPEND_ID_PARAMETER PKT_ID 8 UINT 0x01 0x01 0x01 "SET_V4L2_CTRL"
-  APPEND_PARAMETER    VALUE  32 INT -36000 36000 0 "Tilt (1/100 degree)"
-  APPEND_PARAMETER    NAME   0 STRING "tilt_absolute" "V4L2 control name"
-  SCREEN <%= target_name %> CONTROL
-
-COMMAND <%= target_name %> BRIGHTNESS BIG_ENDIAN "Set brightness"
-  APPEND_PARAMETER    SYNC   16 UINT 0xAABB 0xAABB 0xAABB "Sync pattern"
-  APPEND_PARAMETER    LEN    16 UINT MIN MAX 0 "Packet length"
-  APPEND_ID_PARAMETER PKT_ID 8 UINT 0x01 0x01 0x01 "SET_V4L2_CTRL"
-  APPEND_PARAMETER    VALUE  32 INT MIN MAX 0 "Brightness"
-  APPEND_PARAMETER    NAME   0 STRING "brightness" "V4L2 control name"
-  SCREEN <%= target_name %> CONTROL
-
-COMMAND <%= target_name %> CONTRAST BIG_ENDIAN "Set contrast"
-  APPEND_PARAMETER    SYNC   16 UINT 0xAABB 0xAABB 0xAABB "Sync pattern"
-  APPEND_PARAMETER    LEN    16 UINT MIN MAX 0 "Packet length"
-  APPEND_ID_PARAMETER PKT_ID 8 UINT 0x01 0x01 0x01 "SET_V4L2_CTRL"
-  APPEND_PARAMETER    VALUE  32 INT MIN MAX 0 "Contrast"
-  APPEND_PARAMETER    NAME   0 STRING "contrast" "V4L2 control name"
-  SCREEN <%= target_name %> CONTROL
-
-COMMAND <%= target_name %> SATURATION BIG_ENDIAN "Set saturation"
-  APPEND_PARAMETER    SYNC   16 UINT 0xAABB 0xAABB 0xAABB "Sync pattern"
-  APPEND_PARAMETER    LEN    16 UINT MIN MAX 0 "Packet length"
-  APPEND_ID_PARAMETER PKT_ID 8 UINT 0x01 0x01 0x01 "SET_V4L2_CTRL"
-  APPEND_PARAMETER    VALUE  32 INT MIN MAX 0 "Saturation"
-  APPEND_PARAMETER    NAME   0 STRING "saturation" "V4L2 control name"
-  SCREEN <%= target_name %> CONTROL
-
-COMMAND <%= target_name %> SHARPNESS BIG_ENDIAN "Set sharpness"
-  APPEND_PARAMETER    SYNC   16 UINT 0xAABB 0xAABB 0xAABB "Sync pattern"
-  APPEND_PARAMETER    LEN    16 UINT MIN MAX 0 "Packet length"
-  APPEND_ID_PARAMETER PKT_ID 8 UINT 0x01 0x01 0x01 "SET_V4L2_CTRL"
-  APPEND_PARAMETER    VALUE  32 INT MIN MAX 0 "Sharpness"
-  APPEND_PARAMETER    NAME   0 STRING "sharpness" "V4L2 control name"
-  SCREEN <%= target_name %> CONTROL
-
-COMMAND <%= target_name %> GAIN BIG_ENDIAN "Set gain"
-  APPEND_PARAMETER    SYNC   16 UINT 0xAABB 0xAABB 0xAABB "Sync pattern"
-  APPEND_PARAMETER    LEN    16 UINT MIN MAX 0 "Packet length"
-  APPEND_ID_PARAMETER PKT_ID 8 UINT 0x01 0x01 0x01 "SET_V4L2_CTRL"
-  APPEND_PARAMETER    VALUE  32 INT MIN MAX 0 "Gain"
-  APPEND_PARAMETER    NAME   0 STRING "gain" "V4L2 control name"
-  SCREEN <%= target_name %> CONTROL
-
-COMMAND <%= target_name %> BACKLIGHT_COMPENSATION BIG_ENDIAN "Backlight compensation"
-  APPEND_PARAMETER    SYNC   16 UINT 0xAABB 0xAABB 0xAABB "Sync pattern"
-  APPEND_PARAMETER    LEN    16 UINT MIN MAX 0 "Packet length"
-  APPEND_ID_PARAMETER PKT_ID 8 UINT 0x01 0x01 0x01 "SET_V4L2_CTRL"
-  APPEND_PARAMETER    VALUE  32 INT 0 1 0 "State"
-    STATE OFF 0
-    STATE ON  1
-  APPEND_PARAMETER    NAME   0 STRING "backlight_compensation" "V4L2 control name"
-  SCREEN <%= target_name %> CONTROL
-
-COMMAND <%= target_name %> AUTO_WHITE_BALANCE BIG_ENDIAN "Auto white balance"
-  APPEND_PARAMETER    SYNC   16 UINT 0xAABB 0xAABB 0xAABB "Sync pattern"
-  APPEND_PARAMETER    LEN    16 UINT MIN MAX 0 "Packet length"
-  APPEND_ID_PARAMETER PKT_ID 8 UINT 0x01 0x01 0x01 "SET_V4L2_CTRL"
-  APPEND_PARAMETER    VALUE  32 INT 0 1 1 "State"
-    STATE OFF 0
-    STATE ON  1
-  APPEND_PARAMETER    NAME   0 STRING "white_balance_automatic" "V4L2 control name"
-  SCREEN <%= target_name %> CONTROL
-
-COMMAND <%= target_name %> WHITE_BALANCE_TEMP BIG_ENDIAN "WB temperature (Kelvin)"
-  APPEND_PARAMETER    SYNC   16 UINT 0xAABB 0xAABB 0xAABB "Sync pattern"
-  APPEND_PARAMETER    LEN    16 UINT MIN MAX 0 "Packet length"
-  APPEND_ID_PARAMETER PKT_ID 8 UINT 0x01 0x01 0x01 "SET_V4L2_CTRL"
-  APPEND_PARAMETER    VALUE  32 INT 2000 10000 4000 "WB temperature"
-    UNITS Kelvin K
-  APPEND_PARAMETER    NAME   0 STRING "white_balance_temperature" "V4L2 control name"
-  SCREEN <%= target_name %> CONTROL
-
-# V4L2 native enum: 1=manual, 3=aperture-priority (auto). STATEs send raw enum.
-COMMAND <%= target_name %> EXPOSURE_AUTO BIG_ENDIAN "Exposure mode"
-  APPEND_PARAMETER    SYNC   16 UINT 0xAABB 0xAABB 0xAABB "Sync pattern"
-  APPEND_PARAMETER    LEN    16 UINT MIN MAX 0 "Packet length"
-  APPEND_ID_PARAMETER PKT_ID 8 UINT 0x01 0x01 0x01 "SET_V4L2_CTRL"
-  APPEND_PARAMETER    VALUE  32 INT 0 3 3 "Exposure mode"
-    STATE MANUAL 1
-    STATE AUTO   3
-  APPEND_PARAMETER    NAME   0 STRING "auto_exposure" "V4L2 control name"
-  SCREEN <%= target_name %> CONTROL
-
-COMMAND <%= target_name %> EXPOSURE_ABSOLUTE BIG_ENDIAN "Absolute exposure time"
-  APPEND_PARAMETER    SYNC   16 UINT 0xAABB 0xAABB 0xAABB "Sync pattern"
-  APPEND_PARAMETER    LEN    16 UINT MIN MAX 0 "Packet length"
-  APPEND_ID_PARAMETER PKT_ID 8 UINT 0x01 0x01 0x01 "SET_V4L2_CTRL"
-  APPEND_PARAMETER    VALUE  32 INT MIN MAX 250 "Exposure (100us units)"
-  APPEND_PARAMETER    NAME   0 STRING "exposure_time_absolute" "V4L2 control name"
-  SCREEN <%= target_name %> CONTROL
-
-COMMAND <%= target_name %> AUTO_FOCUS BIG_ENDIAN "Auto focus"
-  APPEND_PARAMETER    SYNC   16 UINT 0xAABB 0xAABB 0xAABB "Sync pattern"
-  APPEND_PARAMETER    LEN    16 UINT MIN MAX 0 "Packet length"
-  APPEND_ID_PARAMETER PKT_ID 8 UINT 0x01 0x01 0x01 "SET_V4L2_CTRL"
-  APPEND_PARAMETER    VALUE  32 INT 0 1 1 "State"
-    STATE OFF 0
-    STATE ON  1
-  APPEND_PARAMETER    NAME   0 STRING "focus_automatic_continuous" "V4L2 control name"
-  SCREEN <%= target_name %> CONTROL
-
-COMMAND <%= target_name %> FOCUS_ABSOLUTE BIG_ENDIAN "Absolute focus position"
-  APPEND_PARAMETER    SYNC   16 UINT 0xAABB 0xAABB 0xAABB "Sync pattern"
-  APPEND_PARAMETER    LEN    16 UINT MIN MAX 0 "Packet length"
-  APPEND_ID_PARAMETER PKT_ID 8 UINT 0x01 0x01 0x01 "SET_V4L2_CTRL"
-  APPEND_PARAMETER    VALUE  32 INT MIN MAX 0 "Focus position"
-  APPEND_PARAMETER    NAME   0 STRING "focus_absolute" "V4L2 control name"
-  SCREEN <%= target_name %> CONTROL
-
-# Generic escape hatch: set any V4L2 control by name from Script Runner.
-COMMAND <%= target_name %> V4L2_SET BIG_ENDIAN "Set any V4L2 control by name"
-  APPEND_PARAMETER    SYNC   16 UINT 0xAABB 0xAABB 0xAABB "Sync pattern"
-  APPEND_PARAMETER    LEN    16 UINT MIN MAX 0 "Packet length"
-  APPEND_ID_PARAMETER PKT_ID 8 UINT 0x01 0x01 0x01 "SET_V4L2_CTRL"
-  APPEND_PARAMETER    VALUE  32 INT MIN MAX 0 "Value"
-  APPEND_PARAMETER    NAME   0 STRING "" "V4L2 control name"
-
-# -- PTZ multi-step / convenience ---------------------------------------------
-
-COMMAND <%= target_name %> PAN_TILT_RELATIVE BIG_ENDIAN "Pan/tilt relative move"
-  APPEND_PARAMETER    SYNC       16 UINT 0xAABB 0xAABB 0xAABB "Sync pattern"
-  APPEND_PARAMETER    LEN        16 UINT MIN MAX 13 "Packet length"
-  APPEND_ID_PARAMETER PKT_ID 8 UINT 0x04 0x04 0x04 "Command ID"
-  APPEND_PARAMETER    PAN_DELTA  32 INT -36000 36000 0 "Pan delta"
-  APPEND_PARAMETER    TILT_DELTA 32 INT -36000 36000 0 "Tilt delta"
+  APPEND_ID_PARAMETER PKT_ID  8 UINT 0x02 0x02 0x02 "SET_PANTILT"
+  APPEND_PARAMETER    PAN    32 INT -648000 648000 0 "Pan (1/3600 degree)"
+  APPEND_PARAMETER    TILT   32 INT -648000 648000 0 "Tilt (1/3600 degree)"
   SCREEN <%= target_name %> CONTROL
 
 COMMAND <%= target_name %> GIMBAL_RESET BIG_ENDIAN "Center the gimbal (0,0)"
   APPEND_PARAMETER    SYNC   16 UINT 0xAABB 0xAABB 0xAABB "Sync pattern"
   APPEND_PARAMETER    LEN    16 UINT MIN MAX 5 "Packet length"
-  APPEND_ID_PARAMETER PKT_ID 8 UINT 0x05 0x05 0x05 "Command ID"
+  APPEND_ID_PARAMETER PKT_ID  8 UINT 0x03 0x03 0x03 "GIMBAL_RESET"
   SCREEN <%= target_name %> CONTROL
 
-# -- Insta360 XU vendor controls (gated by uvc_insta360_enabled) --------------
-<% if uvc_insta360_enabled.to_s == "true" %>
+# -- Processing Unit controls (unit 5) ----------------------------------------
 
-COMMAND <%= target_name %> AI_TRACKING BIG_ENDIAN "Enable/disable AI subject tracking"
-  APPEND_PARAMETER    SYNC   16 UINT 0xAABB 0xAABB 0xAABB "Sync pattern"
-  APPEND_PARAMETER    LEN    16 UINT MIN MAX 6 "Packet length"
-  APPEND_ID_PARAMETER PKT_ID 8 UINT 0x10 0x10 0x10 "Command ID"
-  APPEND_PARAMETER    STATE  8  UINT 0 1 0 "Tracking state"
+COMMAND <%= target_name %> BRIGHTNESS BIG_ENDIAN "Set brightness"
+  APPEND_PARAMETER    SYNC     16 UINT 0xAABB 0xAABB 0xAABB "Sync pattern"
+  APPEND_PARAMETER    LEN      16 UINT MIN MAX 0 "Packet length"
+  APPEND_ID_PARAMETER PKT_ID    8 UINT 0x01 0x01 0x01 "SET_CTRL"
+  APPEND_PARAMETER    UNIT_ID   8 UINT 5 5 5 "PU"
+  APPEND_PARAMETER    SELECTOR  8 UINT 0x02 0x02 0x02 "BRIGHTNESS"
+  APPEND_PARAMETER    LENGTH    8 UINT 2 2 2 "bytes"
+  APPEND_PARAMETER    SIGNED    8 UINT 1 1 1 "signed"
+  APPEND_PARAMETER    VALUE    64 INT MIN MAX 50 "Brightness"
+  SCREEN <%= target_name %> CONTROL
+
+COMMAND <%= target_name %> CONTRAST BIG_ENDIAN "Set contrast"
+  APPEND_PARAMETER    SYNC     16 UINT 0xAABB 0xAABB 0xAABB "Sync pattern"
+  APPEND_PARAMETER    LEN      16 UINT MIN MAX 0 "Packet length"
+  APPEND_ID_PARAMETER PKT_ID    8 UINT 0x01 0x01 0x01 "SET_CTRL"
+  APPEND_PARAMETER    UNIT_ID   8 UINT 5 5 5 "PU"
+  APPEND_PARAMETER    SELECTOR  8 UINT 0x03 0x03 0x03 "CONTRAST"
+  APPEND_PARAMETER    LENGTH    8 UINT 2 2 2 "bytes"
+  APPEND_PARAMETER    SIGNED    8 UINT 0 0 0 "unsigned"
+  APPEND_PARAMETER    VALUE    64 INT 0 65535 50 "Contrast"
+  SCREEN <%= target_name %> CONTROL
+
+COMMAND <%= target_name %> SATURATION BIG_ENDIAN "Set saturation"
+  APPEND_PARAMETER    SYNC     16 UINT 0xAABB 0xAABB 0xAABB "Sync pattern"
+  APPEND_PARAMETER    LEN      16 UINT MIN MAX 0 "Packet length"
+  APPEND_ID_PARAMETER PKT_ID    8 UINT 0x01 0x01 0x01 "SET_CTRL"
+  APPEND_PARAMETER    UNIT_ID   8 UINT 5 5 5 "PU"
+  APPEND_PARAMETER    SELECTOR  8 UINT 0x07 0x07 0x07 "SATURATION"
+  APPEND_PARAMETER    LENGTH    8 UINT 2 2 2 "bytes"
+  APPEND_PARAMETER    SIGNED    8 UINT 0 0 0 "unsigned"
+  APPEND_PARAMETER    VALUE    64 INT 0 65535 50 "Saturation"
+  SCREEN <%= target_name %> CONTROL
+
+COMMAND <%= target_name %> SHARPNESS BIG_ENDIAN "Set sharpness"
+  APPEND_PARAMETER    SYNC     16 UINT 0xAABB 0xAABB 0xAABB "Sync pattern"
+  APPEND_PARAMETER    LEN      16 UINT MIN MAX 0 "Packet length"
+  APPEND_ID_PARAMETER PKT_ID    8 UINT 0x01 0x01 0x01 "SET_CTRL"
+  APPEND_PARAMETER    UNIT_ID   8 UINT 5 5 5 "PU"
+  APPEND_PARAMETER    SELECTOR  8 UINT 0x08 0x08 0x08 "SHARPNESS"
+  APPEND_PARAMETER    LENGTH    8 UINT 2 2 2 "bytes"
+  APPEND_PARAMETER    SIGNED    8 UINT 0 0 0 "unsigned"
+  APPEND_PARAMETER    VALUE    64 INT 0 65535 50 "Sharpness"
+  SCREEN <%= target_name %> CONTROL
+
+COMMAND <%= target_name %> BACKLIGHT_COMPENSATION BIG_ENDIAN "Backlight compensation"
+  APPEND_PARAMETER    SYNC     16 UINT 0xAABB 0xAABB 0xAABB "Sync pattern"
+  APPEND_PARAMETER    LEN      16 UINT MIN MAX 0 "Packet length"
+  APPEND_ID_PARAMETER PKT_ID    8 UINT 0x01 0x01 0x01 "SET_CTRL"
+  APPEND_PARAMETER    UNIT_ID   8 UINT 5 5 5 "PU"
+  APPEND_PARAMETER    SELECTOR  8 UINT 0x01 0x01 0x01 "BACKLIGHT_COMPENSATION"
+  APPEND_PARAMETER    LENGTH    8 UINT 2 2 2 "bytes"
+  APPEND_PARAMETER    SIGNED    8 UINT 0 0 0 "unsigned"
+  APPEND_PARAMETER    VALUE    64 INT 0 65535 0 "State"
     STATE OFF 0
     STATE ON  1
   SCREEN <%= target_name %> CONTROL
 
+# -- Insta360 Extension Unit controls -----------------------------------------
+<% if uvc_insta360_enabled.to_s == "true" %>
+
+# SCENE_MODE doubles as AI_TRACKING toggle (NORMAL = AI off, AI_TRACKING = AI on).
+# Bytes baked into VALUE little-endian, e.g. WHITEBOARD = bytes 0x04 0x01 = 0x0104.
+COMMAND <%= target_name %> SCENE_MODE BIG_ENDIAN "Set scene / tracking mode"
+  APPEND_PARAMETER    SYNC     16 UINT 0xAABB 0xAABB 0xAABB "Sync pattern"
+  APPEND_PARAMETER    LEN      16 UINT MIN MAX 0 "Packet length"
+  APPEND_ID_PARAMETER PKT_ID    8 UINT 0x01 0x01 0x01 "SET_CTRL"
+  APPEND_PARAMETER    UNIT_ID   8 UINT 9 9 9 "XU 9"
+  APPEND_PARAMETER    SELECTOR  8 UINT 0x02 0x02 0x02 "XU_MODE"
+  APPEND_PARAMETER    LENGTH    8 UINT 2 2 2 "bytes"
+  APPEND_PARAMETER    SIGNED    8 UINT 0 0 0 "unsigned"
+  APPEND_PARAMETER    VALUE    64 INT 0 65535 0 "Mode (bytes packed LE)"
+    STATE NORMAL      0
+    STATE AI_TRACKING 1
+    STATE WHITEBOARD  260
+    STATE OVERHEAD    773
+    STATE DESKVIEW    4102
+  SCREEN <%= target_name %> CONTROL
+
 COMMAND <%= target_name %> TRACKING_FRAME BIG_ENDIAN "Set AI tracking framing"
-  APPEND_PARAMETER    SYNC   16 UINT 0xAABB 0xAABB 0xAABB "Sync pattern"
-  APPEND_PARAMETER    LEN    16 UINT MIN MAX 6 "Packet length"
-  APPEND_ID_PARAMETER PKT_ID 8 UINT 0x11 0x11 0x11 "Command ID"
-  APPEND_PARAMETER    FRAME  8  UINT 0 2 0 "Framing mode"
+  APPEND_PARAMETER    SYNC     16 UINT 0xAABB 0xAABB 0xAABB "Sync pattern"
+  APPEND_PARAMETER    LEN      16 UINT MIN MAX 0 "Packet length"
+  APPEND_ID_PARAMETER PKT_ID    8 UINT 0x01 0x01 0x01 "SET_CTRL"
+  APPEND_PARAMETER    UNIT_ID   8 UINT 9 9 9 "XU 9"
+  APPEND_PARAMETER    SELECTOR  8 UINT 0x05 0x05 0x05 "XU_FRAME"
+  APPEND_PARAMETER    LENGTH    8 UINT 1 1 1 "bytes"
+  APPEND_PARAMETER    SIGNED    8 UINT 0 0 0 "unsigned"
+  APPEND_PARAMETER    VALUE    64 INT 0 2 0 "Framing"
     STATE HEAD      0
     STATE HALF_BODY 1
     STATE FULL_BODY 2
   SCREEN <%= target_name %> CONTROL
 
+# Insta360 expects an 8-byte buffer with byte[4] = target. Little-endian VALUE
+# of (target << 32) places `target` at byte index 4.
 COMMAND <%= target_name %> TRACKING_TARGET BIG_ENDIAN "Set AI tracking target type"
-  APPEND_PARAMETER    SYNC   16 UINT 0xAABB 0xAABB 0xAABB "Sync pattern"
-  APPEND_PARAMETER    LEN    16 UINT MIN MAX 6 "Packet length"
-  APPEND_ID_PARAMETER PKT_ID 8 UINT 0x12 0x12 0x12 "Command ID"
-  APPEND_PARAMETER    TARGET 8  UINT 0 1 0 "Target type"
+  APPEND_PARAMETER    SYNC     16 UINT 0xAABB 0xAABB 0xAABB "Sync pattern"
+  APPEND_PARAMETER    LEN      16 UINT MIN MAX 0 "Packet length"
+  APPEND_ID_PARAMETER PKT_ID    8 UINT 0x01 0x01 0x01 "SET_CTRL"
+  APPEND_PARAMETER    UNIT_ID   8 UINT 10 10 10 "XU 10"
+  APPEND_PARAMETER    SELECTOR  8 UINT 0x01 0x01 0x01 "XU_TARGET"
+  APPEND_PARAMETER    LENGTH    8 UINT 8 8 8 "bytes"
+  APPEND_PARAMETER    SIGNED    8 UINT 0 0 0 "unsigned"
+  APPEND_PARAMETER    VALUE    64 INT 0 4294967296 0 "Target (target << 32)"
     STATE SINGLE 0
-    STATE GROUP  1
-  SCREEN <%= target_name %> CONTROL
-
-COMMAND <%= target_name %> SCENE_MODE BIG_ENDIAN "Set scene mode"
-  APPEND_PARAMETER    SYNC   16 UINT 0xAABB 0xAABB 0xAABB "Sync pattern"
-  APPEND_PARAMETER    LEN    16 UINT MIN MAX 6 "Packet length"
-  APPEND_ID_PARAMETER PKT_ID 8 UINT 0x13 0x13 0x13 "Command ID"
-  APPEND_PARAMETER    MODE   8  UINT 0 3 0 "Scene mode"
-    STATE NORMAL     0
-    STATE WHITEBOARD 1
-    STATE OVERHEAD   2
-    STATE DESKVIEW   3
+    STATE GROUP  4294967296
   SCREEN <%= target_name %> CONTROL
 
 <% end %>
 
-# -- Software presets ---------------------------------------------------------
+# -- Presets ------------------------------------------------------------------
 
 COMMAND <%= target_name %> PRESET_SAVE BIG_ENDIAN "Save current PTZ to preset slot"
   APPEND_PARAMETER    SYNC   16 UINT 0xAABB 0xAABB 0xAABB "Sync pattern"
   APPEND_PARAMETER    LEN    16 UINT MIN MAX 6 "Packet length"
-  APPEND_ID_PARAMETER PKT_ID 8 UINT 0x40 0x40 0x40 "Command ID"
-  APPEND_PARAMETER    INDEX  8  UINT 0 5 0 "Preset slot"
+  APPEND_ID_PARAMETER PKT_ID  8 UINT 0x40 0x40 0x40 "PRESET_SAVE"
+  APPEND_PARAMETER    INDEX   8 UINT 0 5 0 "Slot"
   SCREEN <%= target_name %> CONTROL
 
 COMMAND <%= target_name %> PRESET_RECALL BIG_ENDIAN "Recall PTZ from preset slot"
   APPEND_PARAMETER    SYNC   16 UINT 0xAABB 0xAABB 0xAABB "Sync pattern"
   APPEND_PARAMETER    LEN    16 UINT MIN MAX 6 "Packet length"
-  APPEND_ID_PARAMETER PKT_ID 8 UINT 0x41 0x41 0x41 "Command ID"
-  APPEND_PARAMETER    INDEX  8  UINT 0 5 0 "Preset slot"
+  APPEND_ID_PARAMETER PKT_ID  8 UINT 0x41 0x41 0x41 "PRESET_RECALL"
+  APPEND_PARAMETER    INDEX   8 UINT 0 5 0 "Slot"
   SCREEN <%= target_name %> CONTROL
 
-# -- Status request -----------------------------------------------------------
+# -- Status -------------------------------------------------------------------
 
-# NAMES dictates which V4L2 controls the bridge queries (and in what order) to
-# build the STATUS response. Tlm.txt STATUS field order MUST match this list.
+# QUERIES lists which UVC controls the bridge reads to build STATUS, in tlm.txt
+# field order. Format: "unit,selector,length,signed[,count];..."
+# `count` (default 1) splits a multi-field control (e.g. PANTILT 8 bytes ->
+# pan + tilt i32s) into multiple STATUS fields.
 COMMAND <%= target_name %> GET_STATUS BIG_ENDIAN "Request a STATUS telemetry packet"
-  APPEND_PARAMETER    SYNC   16 UINT 0xAABB 0xAABB 0xAABB "Sync pattern"
-  APPEND_PARAMETER    LEN    16 UINT MIN MAX 0 "Packet length"
-  APPEND_ID_PARAMETER PKT_ID 8 UINT 0x7F 0x7F 0x7F "Command ID"
-  APPEND_PARAMETER    NAMES  0 STRING "pan_absolute,tilt_absolute,zoom_absolute,brightness,contrast,saturation,sharpness,gain,backlight_compensation,white_balance_automatic,white_balance_temperature,auto_exposure,exposure_time_absolute,focus_automatic_continuous,focus_absolute" "Comma-separated V4L2 controls to query"
+  APPEND_PARAMETER    SYNC     16  UINT 0xAABB 0xAABB 0xAABB "Sync pattern"
+  APPEND_PARAMETER    LEN      16  UINT MIN MAX 0 "Packet length"
+  APPEND_ID_PARAMETER PKT_ID    8  UINT 0x7F 0x7F 0x7F "GET_STATUS"
+  APPEND_PARAMETER    QUERIES  4096 STRING "1,13,8,1,2;1,11,2,0;5,2,2,1;5,3,2,0;5,7,2,0;5,8,2,0;5,1,2,0" "Status query list"
