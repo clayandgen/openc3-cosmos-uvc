@@ -1,0 +1,18 @@
+# Set VARIABLEs here to allow variation in your plugin
+
+VARIABLE uvc_target_name UVC
+  VARIABLE_DESCRIPTION "Target name for the UVC camera"
+
+VARIABLE uvc_bridge_host host.docker.internal
+  VARIABLE_DESCRIPTION "Host running uvc_bridge.py"
+
+VARIABLE uvc_bridge_port 8080
+  VARIABLE_DESCRIPTION "TCP port that uvc_bridge.py listens on"
+
+VARIABLE uvc_insta360_enabled true
+  VARIABLE_DESCRIPTION "Include Insta360 vendor-specific commands (AI tracking, scene modes, framing, target). Set to false for generic UVC cameras."
+
+TARGET UVC <%= uvc_target_name %>
+INTERFACE <%= uvc_target_name %>_INT openc3/interfaces/tcpip_client_interface.py <%= uvc_bridge_host %> <%= uvc_bridge_port %> <%= uvc_bridge_port %> 10.0 None LENGTH 16 16 0 1 BIG_ENDIAN 0 0xAABB None True
+  MAP_TARGET <%= uvc_target_name %>
+  OPTION PERIODIC_CMD DONT_LOG 1.0 "<%= uvc_target_name %> GET_STATUS"
