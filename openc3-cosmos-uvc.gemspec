@@ -3,7 +3,7 @@
 # Create the overall gemspec
 Gem::Specification.new do |s|
   s.name = 'openc3-cosmos-uvc'
-  s.summary = 'USB Video Class (UVC) camera control'
+  s.summary = 'USB Video Class (UVC) Control'
   s.description = <<-EOF
     Control UVC webcams from COSMOS
   EOF
@@ -32,5 +32,5 @@ Gem::Specification.new do |s|
   else
     'requirements.txt'
   end
-  s.files = Dir.glob("{targets,lib,public,tools,microservices}/**/*") + %w(Rakefile README.md LICENSE.txt plugin.txt) + [python_dep_file]
+  s.files = Dir.glob("{targets,lib,public,tools,microservices}/**/*") + %w(Rakefile README.md LICENSE.txt plugin.txt bridge.txt) + [python_dep_file]
 end

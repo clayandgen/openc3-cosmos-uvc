@@ -4,10 +4,10 @@ VARIABLE uvc_target_name UVC
   VARIABLE_DESCRIPTION "Target name for the UVC camera"
 
 VARIABLE uvc_bridge_host host.docker.internal
-  VARIABLE_DESCRIPTION "Host running uvc_bridge.py"
+  VARIABLE_DESCRIPTION "Host running the UVC bridge (openc3pycli bridge)"
 
 VARIABLE uvc_bridge_port 8080
-  VARIABLE_DESCRIPTION "TCP port that uvc_bridge.py listens on"
+  VARIABLE_DESCRIPTION "TCP router_port of the UVC bridge"
 
 VARIABLE uvc_insta360_enabled true
   VARIABLE_DESCRIPTION "Include Insta360 vendor-specific commands (AI tracking, scene modes, framing, target). Set to false for generic UVC cameras."

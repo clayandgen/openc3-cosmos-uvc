@@ -4,36 +4,78 @@
   <img src="public/store_img.png" alt="UVC Plugin" width="400"/>
 </p>
 
-Control USB Video Class (UVC) webcams from COSMOS. Generic UVC standard controls (PTZ, brightness, contrast, exposure, white balance, focus, etc.) work with any compliant camera. Optional Insta360 Link / Link 2 vendor-specific controls (AI tracking, scene modes, framing, target) gated by a plugin variable.
+Control USB Video Class (UVC) webcams from COSMOS. Generic UVC standard controls (PTZ, brightness, contrast, etc.) work with any compliant camera. Insta360 Link / Link 2 vendor controls (AI tracking, scene modes, framing, target) are gated by a plugin variable.
 
-Single-repo: COSMOS plugin + a host-side bridge script (`lib/uvc_bridge.py`) that drives the camera via raw USB control transfers (PyUSB / libusb). One code path, cross-platform.
+Tested on **macOS**. Linux and Windows are untested.
 
 ## Architecture
 
 ```
-[ COSMOS plugin (Docker) ] --TCP/8080--> [ python lib/uvc_bridge.py (host) ] --libusb--> [ Camera ]
+control:  COSMOS plugin --TCP--> openc3pycli bridge --libusb--> Camera
+video:    COSMOS videoplayer <--HLS-- MediaMTX <--RTSP-- ffmpeg <-- Camera
 ```
 
-The bridge uses OpenC3's `TcpipServerInterface` so framing is symmetric on both ends. **Bridge synthesizes nothing.** Telemetry comes from live UVC `GET_CUR` requests against the actual device; the only writes back to COSMOS are STATUS replies driven by `GET_STATUS`.
+The two paths coexist: the bridge does USB control transfers without claiming any interface; ffmpeg uses AVFoundation streaming. macOS needs `sudo` to run the bridge (Apple holds the camera kext).
 
-The wire protocol is UVC-native: every command carries `(unit_id, selector, length, signed, value)`. No platform-specific naming, no translation table.
+---
 
-## Platform notes
+## 1. Install dependencies (macOS)
 
-| Platform | Status                                                                                                |
-|----------|-------------------------------------------------------------------------------------------------------|
-| Linux    | Works without root **if** a udev rule grants USB access to the camera's VID:PID. See Quick Start.     |
-| macOS    | Must run the bridge with `sudo` — Apple holds the camera's `VideoControl` interface and libusb needs root to detach. |
-| Windows  | Untested. PyUSB + libusb support Windows; should work with a WinUSB driver bound to the camera (Zadig). |
+```bash
+brew install libusb ffmpeg mediamtx
+python3 -m venv .venv && source .venv/bin/activate
+pip install openc3 pyusb
+gem install openc3
+```
+
+## 2. Build + install the plugin
+
+```bash
+rake build VERSION=1.0.0
+```
+
+In the COSMOS Admin Tool > Plugins, upload `openc3-cosmos-uvc-1.0.0.gem`.
+
+## 3. Run the control bridge
+
+```bash
+sudo -E .venv/bin/python run_bridge.py vendor_id=0x2E1A product_id=0x4C04 router_port=8080
+```
+
+Defaults are Insta360 Link 2. Set `vendor_id=nil product_id=nil` to auto-detect any Insta360 Link.
+
+Now PTZ and image commands work in Command Sender / Telemetry Viewer / Script Runner.
+
+## 4. (Optional) Live video into COSMOS
+
+Three terminals:
+
+```bash
+# Terminal A: stream server
+mediamtx mediamtx.yml
+
+# Terminal B: push camera to server
+./stream.sh
+
+# Terminal C: build + install patched videoplayer (once)
+cd /path/to/openc3-cosmos-tool-videoplayer
+pnpm install && pnpm build && rake build VERSION=1.1.2
+```
+
+Upload the new `openc3-cosmos-tool-videoplayer-1.1.2.gem` in COSMOS Admin Tool (uninstall any old version first). In the VideoPlayer tool: **File > New Source** → `http://localhost:8888/insta360/index.m3u8`. (Don't click "Save Configuration" — separate upstream bug.)
+
+The videoplayer patch lives in `src/tools/VideoPlayer/playlistProcessing/pLoader.js` — bypasses the cosmos-hls cache loader for plain `http(s)` URLs.
+
+---
 
 ## Plugin Variables
 
 | Variable                 | Default                  | Purpose                                                          |
 |--------------------------|--------------------------|------------------------------------------------------------------|
 | `uvc_target_name`        | `UVC`                    | Target name                                                      |
-| `uvc_bridge_host`        | `host.docker.internal`   | Host running `uvc_bridge.py`                                     |
+| `uvc_bridge_host`        | `host.docker.internal`   | Host running the bridge                                          |
 | `uvc_bridge_port`        | `8080`                   | TCP port the bridge listens on                                   |
-| `uvc_insta360_enabled`   | `true`                   | Include Insta360 XU commands + screen section.                   |
+| `uvc_insta360_enabled`   | `true`                   | Include Insta360 XU commands + screen section                    |
 
 ## Wire Format
 
@@ -41,61 +83,21 @@ The wire protocol is UVC-native: every command carries `(unit_id, selector, leng
 [ SYNC u16 = 0xAABB ][ LEN u16 ][ PKT_ID u8 ][ PAYLOAD... ]
 ```
 
-Big-endian. COSMOS auto-fills `SYNC` and `LEN` (LengthProtocol `fill_fields=True`).
+Big-endian. COSMOS auto-fills `SYNC` and `LEN`.
 
-### Command IDs
+| ID    | Name          | Payload                                                                | COSMOS COMMANDs                                                                 |
+|-------|---------------|------------------------------------------------------------------------|---------------------------------------------------------------------------------|
+| 0x01  | SET_CTRL      | `u8 UNIT, u8 SEL, u8 LEN, u8 SIGNED, i64 VALUE`                        | `ZOOM`, `BRIGHTNESS`, `CONTRAST`, `SATURATION`, `SHARPNESS`, `BACKLIGHT_COMPENSATION`, `SCENE_MODE`*, `TRACKING_FRAME`*, `TRACKING_TARGET`* |
+| 0x02  | SET_PANTILT   | `i32 PAN, i32 TILT`                                                    | `PAN_TILT`                                                                       |
+| 0x03  | GIMBAL_RESET  | (none)                                                                 | `GIMBAL_RESET`                                                                   |
+| 0x40  | PRESET_SAVE   | `u8` slot 0-5                                                          | `PRESET_SAVE`                                                                    |
+| 0x41  | PRESET_RECALL | `u8` slot 0-5                                                          | `PRESET_RECALL`                                                                  |
+| 0x7F  | GET_STATUS    | utf-8 `unit,sel,len,signed[,count];...`                                | `GET_STATUS`                                                                     |
+| 0x80  | STATUS (tlm)  | i32 per query, in `GET_STATUS QUERIES` order                           | —                                                                                |
 
-| ID    | Name          | Payload                                                                                       | COSMOS COMMANDs                                                                 |
-|-------|---------------|-----------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------|
-| 0x01  | SET_CTRL      | `u8 UNIT_ID, u8 SELECTOR, u8 LENGTH, u8 SIGNED, i64 VALUE`                                    | `ZOOM`, `BRIGHTNESS`, `CONTRAST`, `SATURATION`, `SHARPNESS`, `BACKLIGHT_COMPENSATION`, `SCENE_MODE` *(Insta360)*, `TRACKING_FRAME` *(Insta360)*, `TRACKING_TARGET` *(Insta360)* |
-| 0x02  | SET_PANTILT   | `i32 PAN, i32 TILT` (UVC CT_PANTILT_ABSOLUTE; combined 8-byte control)                        | `PAN_TILT`                                                                       |
-| 0x03  | GIMBAL_RESET  | (none)                                                                                        | `GIMBAL_RESET`                                                                   |
-| 0x40  | PRESET_SAVE   | `u8` slot 0-5 — bridge reads live pan/tilt/zoom and saves                                     | `PRESET_SAVE`                                                                    |
-| 0x41  | PRESET_RECALL | `u8` slot 0-5                                                                                 | `PRESET_RECALL`                                                                  |
-| 0x7F  | GET_STATUS    | utf-8 `unit,sel,len,signed[,count];...` query list                                            | `GET_STATUS` (default QUERIES in `cmd.txt`)                                      |
+\* Insta360-only
 
-`SET_CTRL` does a single UVC `SET_CUR` control transfer: bytes = `value.to_bytes(LENGTH, "little", signed=SIGNED)` sent with `wValue=(SELECTOR<<8)`, `wIndex=(UNIT_ID<<8)`. The same dispatch handles standard UVC controls (CT unit 1, PU unit 5) and Insta360 vendor controls (XU units 9/10) — only the UNIT_ID/SELECTOR/LENGTH defaults in cmd.txt differ.
-
-Insta360 `SCENE_MODE` packs the two-byte XU mode bytes into a single 16-bit LE value via STATEs (e.g. `WHITEBOARD` = `0x0104` = bytes `04 01`). `TRACKING_TARGET` packs byte[4] of an 8-byte buffer via `(target << 32)`.
-
-### Telemetry
-
-| ID    | Packet  | Source                                                                                |
-|-------|---------|---------------------------------------------------------------------------------------|
-| 0x80  | STATUS  | One UVC `GET_CUR` per query in `GET_STATUS NAMES`'s payload, packed as i32s. PANTILT (`count=2`) yields two fields (pan, tilt). Fields in `tlm.txt` must appear in QUERIES order. |
-
-### STATUS field source-of-truth
-
-The `QUERIES` default on the `GET_STATUS` command (in `cmd.txt`) lists which UVC controls the bridge reads, in the order the bridge packs them. Bridge has no hardcoded list. Add/remove a STATUS field = edit both `cmd.txt`'s `GET_STATUS QUERIES` default and the matching `APPEND_ITEM` in `tlm.txt`.
-
-## Quick Start
-
-Install the camera and tools
-
-```
-# macOS
-brew install libuvc
-python3 -m venv .venv && source .venv/bin/activate
-pip install openc3 pyusb
-```
-
-Run the bridge:
-
-```
-# macOS
-OPENC3_NO_STORE=1 OPENC3_API_HOSTNAME=localhost OPENC3_API_PORT=2900 \
-    sudo -E python lib/uvc_bridge.py --port 8080
-```
-
-By default the bridge auto-detects an Insta360 Link / Link 2. Use `--vid 0xXXXX --pid 0xYYYY` for another camera.
-
-Build and install the plugin:
-
-```
-<COSMOS>/openc3.sh cli rake build VERSION=1.0.0
-```
-
-Upload the `.gem` in Admin Tool > Plugins. Adjust `uvc_bridge_host`, `uvc_bridge_port`, `uvc_insta360_enabled` at install time.
+Adding a STATUS field = edit `cmd.txt`'s `GET_STATUS QUERIES` default and the matching `APPEND_ITEM` in `tlm.txt`. Bridge needs no changes.
 
 ## Script API
 
@@ -110,6 +112,8 @@ cam.tracking_frame("HALF_BODY") # Insta360 only
 cam.preset_save(0)
 ```
 
+Demo procedures in `targets/UVC/procedures/`: `procedure.py` (general sweep), `zigzag.py` (row-by-row PTZ pattern).
+
 ## License
 
-MIT - see [LICENSE.txt](LICENSE.txt).
+MIT — see [LICENSE.txt](LICENSE.txt).

@@ -1,0 +1,17 @@
+# Minimal MediaMTX config for the UVC plugin, tuned for Low-Latency HLS.
+#
+# Run from this directory:
+#     mediamtx mediamtx.yml
+#
+# Then push the camera via ./stream.sh. The COSMOS videoplayer URL is:
+#     http://localhost:8888/insta360/index.m3u8
+# hls.js will auto-negotiate LL-HLS when EXT-X-PART tags appear.
+
+hlsVariant: lowLatency
+hlsSegmentCount: 7
+hlsSegmentDuration: 200ms
+hlsPartDuration: 200ms
+hlsSegmentMaxSize: 50M
+
+paths:
+  all_others:

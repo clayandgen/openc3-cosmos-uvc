@@ -1,0 +1,26 @@
+# Bridge config for the UVC plugin.
+#
+# Launch via:
+#   openc3cli bridgegem openc3-cosmos-uvc router_port=8080
+#
+# The bridge owns USB access to the camera and exposes a TCP router that the
+# openc3-cosmos-uvc plugin connects to. Same LengthProtocol framing on both
+# ends.
+
+# USB Vendor / Product ID. Defaults match Insta360 Link 2; use nil to
+# auto-detect any Insta360 Link (PID 0x4C01 or 0x4C04).
+VARIABLE vendor_id 0x2E1A
+VARIABLE product_id 0x4C04
+
+# TCP port the bridge listens on. Plugin's uvc_bridge_port must match.
+VARIABLE router_port 8080
+
+# Listen address. Defaults to localhost. Set to 0.0.0.0 if COSMOS runs on a
+# different host.
+VARIABLE router_listen_address 127.0.0.1
+
+INTERFACE UVC_INT uvc_interface.py <%= vendor_id %> <%= product_id %>
+
+ROUTER UVC_ROUTER openc3/interfaces/tcpip_server_interface.py <%= router_port %> <%= router_port %> 10.0 nil LENGTH 16 16 0 1 BIG_ENDIAN 0 0xAABB nil true
+  ROUTE UVC_INT
+  OPTION LISTEN_ADDRESS <%= router_listen_address %>
