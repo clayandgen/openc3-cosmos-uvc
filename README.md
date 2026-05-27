@@ -6,7 +6,7 @@
 
 Control USB Video Class (UVC) webcams from COSMOS. Generic UVC standard controls (PTZ, brightness, contrast, etc.) work with any compliant camera. Insta360 Link / Link 2 vendor controls (AI tracking, scene modes, framing, target) are gated by a plugin variable.
 
-Tested on **macOS**. Linux and Windows are untested.
+Tested on **macOS**
 
 ## Architecture
 
@@ -46,7 +46,7 @@ Defaults are Insta360 Link 2. Set `vendor_id=nil product_id=nil` to auto-detect 
 
 Now PTZ and image commands work in Command Sender / Telemetry Viewer / Script Runner.
 
-## 4. (Optional) Live video into COSMOS
+## 4. Live video into COSMOS
 
 Three terminals:
 
@@ -56,15 +56,9 @@ mediamtx mediamtx.yml
 
 # Terminal B: push camera to server
 ./stream.sh
-
-# Terminal C: build + install patched videoplayer (once)
-cd /path/to/openc3-cosmos-tool-videoplayer
-pnpm install && pnpm build && rake build VERSION=1.1.2
 ```
 
-Upload the new `openc3-cosmos-tool-videoplayer-1.1.2.gem` in COSMOS Admin Tool (uninstall any old version first). In the VideoPlayer tool: **File > New Source** → `http://localhost:8888/insta360/index.m3u8`. (Don't click "Save Configuration" — separate upstream bug.)
-
-The videoplayer patch lives in `src/tools/VideoPlayer/playlistProcessing/pLoader.js` — bypasses the cosmos-hls cache loader for plain `http(s)` URLs.
+Install Video Player via the COSMOS Admin Tool. In the VideoPlayer tool: **File > New Source** → `http://localhost:8888/insta360/index.m3u8`
 
 ---
 
@@ -83,8 +77,6 @@ The videoplayer patch lives in `src/tools/VideoPlayer/playlistProcessing/pLoader
 [ SYNC u16 = 0xAABB ][ LEN u16 ][ PKT_ID u8 ][ PAYLOAD... ]
 ```
 
-Big-endian. COSMOS auto-fills `SYNC` and `LEN`.
-
 | ID    | Name          | Payload                                                                | COSMOS COMMANDs                                                                 |
 |-------|---------------|------------------------------------------------------------------------|---------------------------------------------------------------------------------|
 | 0x01  | SET_CTRL      | `u8 UNIT, u8 SEL, u8 LEN, u8 SIGNED, i64 VALUE`                        | `ZOOM`, `BRIGHTNESS`, `CONTRAST`, `SATURATION`, `SHARPNESS`, `BACKLIGHT_COMPENSATION`, `SCENE_MODE`*, `TRACKING_FRAME`*, `TRACKING_TARGET`* |
@@ -96,8 +88,6 @@ Big-endian. COSMOS auto-fills `SYNC` and `LEN`.
 | 0x80  | STATUS (tlm)  | i32 per query, in `GET_STATUS QUERIES` order                           | —                                                                                |
 
 \* Insta360-only
-
-Adding a STATUS field = edit `cmd.txt`'s `GET_STATUS QUERIES` default and the matching `APPEND_ITEM` in `tlm.txt`. Bridge needs no changes.
 
 ## Script API
 
