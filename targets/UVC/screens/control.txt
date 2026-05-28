@@ -7,12 +7,6 @@ VERTICAL
   VERTICALBOX "Pan / Tilt / Zoom"
     HORIZONTAL 10
       VERTICAL
-        LABEL "Current"
-        LABELVALUE <%= target_name %> STATUS PAN  CONVERTED 18
-        LABELVALUE <%= target_name %> STATUS TILT CONVERTED 18
-        LABELVALUE <%= target_name %> STATUS ZOOM CONVERTED 18
-      END
-      VERTICAL
         LABEL "Pan + Tilt (UVC native combined)"
         HORIZONTAL 5
           NAMED_WIDGET PAN_VAL  TEXTFIELD 8 "0"
@@ -71,11 +65,17 @@ VERTICAL
           NAMED_WIDGET BRT TEXTFIELD 8 "50"
           BUTTON 'Set' "api.cmd('<%= target_name %> BRIGHTNESS with VALUE '+screen.getNamedWidget('BRT').text())"
         END
+      END
+      VERTICAL
         LABEL "Contrast"
         HORIZONTAL 5
           NAMED_WIDGET CON TEXTFIELD 8 "50"
           BUTTON 'Set' "api.cmd('<%= target_name %> CONTRAST with VALUE '+screen.getNamedWidget('CON').text())"
         END
+      END
+    END
+    HORIZONTAL 10
+      VERTICAL
         LABEL "Saturation"
         HORIZONTAL 5
           NAMED_WIDGET SAT TEXTFIELD 8 "50"
@@ -88,24 +88,8 @@ VERTICAL
           NAMED_WIDGET SHA TEXTFIELD 8 "50"
           BUTTON 'Set' "api.cmd('<%= target_name %> SHARPNESS with VALUE '+screen.getNamedWidget('SHA').text())"
         END
-        LABEL "Backlight"
-        HORIZONTAL 5
-          BUTTON 'ON'  'api.cmd("<%= target_name %> BACKLIGHT_COMPENSATION with VALUE ON")'
-          BUTTON 'OFF' 'api.cmd("<%= target_name %> BACKLIGHT_COMPENSATION with VALUE OFF")'
-        END
       END
     END
   END
 
-  VERTICALBOX "Presets"
-    HORIZONTAL 5
-      <% (0..5).each do |i| %>
-      VERTICAL
-        LABEL "Slot <%= i %>"
-        BUTTON 'Save'   'api.cmd("<%= target_name %> PRESET_SAVE with INDEX <%= i %>")'
-        BUTTON 'Recall' 'api.cmd("<%= target_name %> PRESET_RECALL with INDEX <%= i %>")'
-      END
-      <% end %>
-    END
-  END
 END

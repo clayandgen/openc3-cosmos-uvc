@@ -44,7 +44,7 @@ sudo -E .venv/bin/python run_bridge.py vendor_id=0x2E1A product_id=0x4C04 router
 
 Defaults are Insta360 Link 2. Set `vendor_id=nil product_id=nil` to auto-detect any Insta360 Link.
 
-Now PTZ and image commands work in Command Sender / Telemetry Viewer / Script Runner.
+Now PTZ and image commands work in Command Sender / Script Runner.
 
 ## 4. Live video into COSMOS
 
@@ -79,13 +79,9 @@ Install Video Player via the COSMOS Admin Tool. In the VideoPlayer tool: **File 
 
 | ID    | Name          | Payload                                                                | COSMOS COMMANDs                                                                 |
 |-------|---------------|------------------------------------------------------------------------|---------------------------------------------------------------------------------|
-| 0x01  | SET_CTRL      | `u8 UNIT, u8 SEL, u8 LEN, u8 SIGNED, i64 VALUE`                        | `ZOOM`, `BRIGHTNESS`, `CONTRAST`, `SATURATION`, `SHARPNESS`, `BACKLIGHT_COMPENSATION`, `SCENE_MODE`*, `TRACKING_FRAME`*, `TRACKING_TARGET`* |
+| 0x01  | SET_CTRL      | `u8 UNIT, u8 SEL, u8 LEN, u8 SIGNED, i64 VALUE`                        | `ZOOM`, `BRIGHTNESS`, `CONTRAST`, `SATURATION`, `SHARPNESS`, `SCENE_MODE`*, `TRACKING_FRAME`*, `TRACKING_TARGET`* |
 | 0x02  | SET_PANTILT   | `i32 PAN, i32 TILT`                                                    | `PAN_TILT`                                                                       |
 | 0x03  | GIMBAL_RESET  | (none)                                                                 | `GIMBAL_RESET`                                                                   |
-| 0x40  | PRESET_SAVE   | `u8` slot 0-5                                                          | `PRESET_SAVE`                                                                    |
-| 0x41  | PRESET_RECALL | `u8` slot 0-5                                                          | `PRESET_RECALL`                                                                  |
-| 0x7F  | GET_STATUS    | utf-8 `unit,sel,len,signed[,count];...`                                | `GET_STATUS`                                                                     |
-| 0x80  | STATUS (tlm)  | i32 per query, in `GET_STATUS QUERIES` order                           | —                                                                                |
 
 \* Insta360-only
 
@@ -99,7 +95,6 @@ cam.pan_tilt(1500, -300)
 cam.brightness(50)
 cam.scene_mode("AI_TRACKING")   # Insta360 only
 cam.tracking_frame("HALF_BODY") # Insta360 only
-cam.preset_save(0)
 ```
 
 Demo procedures in `targets/UVC/procedures/`: `procedure.py` (general sweep), `zigzag.py` (row-by-row PTZ pattern).

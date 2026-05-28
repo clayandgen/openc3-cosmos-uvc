@@ -5,16 +5,15 @@ transfers (PyUSB) so the same code runs on Linux and macOS.
 Bridge usage:
     openc3cli bridgegem openc3-cosmos-uvc vendor_id=0x2E1A product_id=0x4C04 router_port=8080
 
-The interface receives framed packets (LengthProtocol on the bridge ROUTER)
-and dispatches one UVC control transfer per command.
+The interface receives framed command packets (LengthProtocol on the bridge
+ROUTER) and dispatches one UVC control transfer per command. It is write-only:
+the camera has no telemetry path back to COSMOS.
 """
 
 import array
 import logging
-import queue
 import struct
 import threading
-from typing import Optional, Tuple
 
 import usb.core
 from openc3.interfaces.interface import Interface
@@ -31,12 +30,8 @@ HEADER_SIZE = 5
 CMD_SET_CTRL     = 0x01
 CMD_SET_PANTILT  = 0x02
 CMD_GIMBAL_RESET = 0x03
-CMD_PRESET_SAVE  = 0x40
-CMD_PRESET_RECALL= 0x41
-CMD_GET_STATUS   = 0x7F
-TLM_STATUS       = 0x80
 
-CT_UNIT, CT_PANTILT, CT_ZOOM = 1, 0x0D, 0x0B
+CT_UNIT, CT_PANTILT = 1, 0x0D
 
 
 def _raw_ctrl(dev, bm_req_type, b_req, w_value, w_index, data_or_len):
@@ -54,33 +49,6 @@ def uvc_set(dev, unit, sel, data):
     _raw_ctrl(dev, 0x21, 0x01, sel << 8, unit << 8, buf)
 
 
-def uvc_get(dev, unit, sel, length):
-    return bytes(_raw_ctrl(dev, 0xA1, 0x81, sel << 8, unit << 8, length))
-
-
-def _frame(pkt_id: int, payload: bytes) -> bytes:
-    return struct.pack(HEADER_FMT, SYNC, HEADER_SIZE + len(payload), pkt_id) + payload
-
-
-def _status_payload(dev, query_str: str) -> bytes:
-    payload = b""
-    for chunk in query_str.split(";"):
-        parts = [p.strip() for p in chunk.strip().split(",") if p.strip()]
-        if len(parts) < 4:
-            continue
-        unit, sel, length, signed = (int(parts[i], 0) for i in range(4))
-        count = int(parts[4], 0) if len(parts) > 4 else 1
-        try:
-            data = uvc_get(dev, unit, sel, length)
-        except Exception:
-            data = b"\x00" * length
-        n = length // count
-        for i in range(count):
-            v = int.from_bytes(data[i*n:(i+1)*n], "little", signed=bool(signed))
-            payload += struct.pack(">i", max(-0x80000000, min(0x7FFFFFFF, v)))
-    return payload
-
-
 # --- Interface ---------------------------------------------------------------
 
 INSTA360_VID = 0x2E1A
@@ -96,14 +64,14 @@ class UvcInterface(Interface):
 
     def __init__(self, vendor_id="nil", product_id="nil"):
         super().__init__()
+        # Write-only: commands flow COSMOS -> bridge -> camera; no telemetry back.
+        self.read_allowed = False
+        self.read_raw_allowed = False
         self.vid = self._parse_id(vendor_id)
         self.pid = self._parse_id(product_id)
         self.dev = None
         self.model = "UVC"
-        self.model_id = 0
-        self.presets = {}
         self._connected = False
-        self._read_queue: "queue.Queue[bytes]" = queue.Queue()
         self._lock = threading.Lock()
 
     @staticmethod
@@ -124,14 +92,12 @@ class UvcInterface(Interface):
             if d is not None:
                 self.dev = d
                 self.model = f"USB {self.vid:04x}:{self.pid:04x}"
-                self.model_id = self.pid
         else:
             for pid, name in INSTA360_LINK_PIDS.items():
                 d = usb.core.find(idVendor=INSTA360_VID, idProduct=pid)
                 if d is not None:
                     self.dev = d
                     self.model = name
-                    self.model_id = pid
                     log.info("Detected %s (%04x:%04x)", name, INSTA360_VID, pid)
                     break
         if self.dev is None:
@@ -150,10 +116,6 @@ class UvcInterface(Interface):
 
     def disconnect(self):
         self._connected = False
-        try:
-            self._read_queue.put_nowait(b"")
-        except queue.Full:
-            pass
         if self.dev is not None:
             try:
                 usb.util.dispose_resources(self.dev)
@@ -163,18 +125,6 @@ class UvcInterface(Interface):
         super().disconnect()
 
     # --- I/O ---
-
-    def read_interface(self) -> Tuple[Optional[bytes], None]:
-        while self._connected:
-            try:
-                data = self._read_queue.get(timeout=1.0)
-            except queue.Empty:
-                continue
-            if not data:
-                return None, None
-            self.read_interface_base(data, None)
-            return data, None
-        return None, None
 
     def write_interface(self, data, extra=None):
         self.write_interface_base(data, extra)
@@ -201,21 +151,6 @@ class UvcInterface(Interface):
                 uvc_set(self.dev, CT_UNIT, CT_PANTILT, struct.pack("<ii", pan, tilt))
             elif pkt_id == CMD_GIMBAL_RESET:
                 uvc_set(self.dev, CT_UNIT, CT_PANTILT, struct.pack("<ii", 0, 0))
-            elif pkt_id == CMD_PRESET_SAVE:
-                self.presets[payload[0]] = (
-                    uvc_get(self.dev, CT_UNIT, CT_PANTILT, 8) +
-                    uvc_get(self.dev, CT_UNIT, CT_ZOOM, 2)
-                )
-            elif pkt_id == CMD_PRESET_RECALL:
-                blob = self.presets.get(payload[0])
-                if blob:
-                    uvc_set(self.dev, CT_UNIT, CT_PANTILT, blob[:8])
-                    uvc_set(self.dev, CT_UNIT, CT_ZOOM, blob[8:10])
-            elif pkt_id == CMD_GET_STATUS:
-                q = payload.decode("utf-8", "replace").strip("\x00").strip()
-                body = _status_payload(self.dev, q)
-                body += struct.pack(">H", self.model_id) + self.model.encode("utf-8")
-                self._read_queue.put(_frame(TLM_STATUS, body))
             else:
                 log.warning("Unknown pkt_id 0x%02x", pkt_id)
         except Exception:

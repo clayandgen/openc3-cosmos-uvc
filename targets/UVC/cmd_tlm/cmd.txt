@@ -86,19 +86,6 @@ COMMAND <%= target_name %> SHARPNESS BIG_ENDIAN "Set sharpness"
   APPEND_PARAMETER    VALUE    64 INT 0 65535 50 "Sharpness"
   SCREEN <%= target_name %> CONTROL
 
-COMMAND <%= target_name %> BACKLIGHT_COMPENSATION BIG_ENDIAN "Backlight compensation"
-  APPEND_PARAMETER    SYNC     16 UINT 0xAABB 0xAABB 0xAABB "Sync pattern"
-  APPEND_PARAMETER    LEN      16 UINT MIN MAX 0 "Packet length"
-  APPEND_ID_PARAMETER PKT_ID    8 UINT 0x01 0x01 0x01 "SET_CTRL"
-  APPEND_PARAMETER    UNIT_ID   8 UINT 5 5 5 "PU"
-  APPEND_PARAMETER    SELECTOR  8 UINT 0x01 0x01 0x01 "BACKLIGHT_COMPENSATION"
-  APPEND_PARAMETER    LENGTH    8 UINT 2 2 2 "bytes"
-  APPEND_PARAMETER    SIGNED    8 UINT 0 0 0 "unsigned"
-  APPEND_PARAMETER    VALUE    64 INT 0 65535 0 "State"
-    STATE OFF 0
-    STATE ON  1
-  SCREEN <%= target_name %> CONTROL
-
 # -- Insta360 Extension Unit controls -----------------------------------------
 <% if uvc_insta360_enabled.to_s == "true" %>
 
@@ -150,31 +137,3 @@ COMMAND <%= target_name %> TRACKING_TARGET BIG_ENDIAN "Set AI tracking target ty
   SCREEN <%= target_name %> CONTROL
 
 <% end %>
-
-# -- Presets ------------------------------------------------------------------
-
-COMMAND <%= target_name %> PRESET_SAVE BIG_ENDIAN "Save current PTZ to preset slot"
-  APPEND_PARAMETER    SYNC   16 UINT 0xAABB 0xAABB 0xAABB "Sync pattern"
-  APPEND_PARAMETER    LEN    16 UINT MIN MAX 6 "Packet length"
-  APPEND_ID_PARAMETER PKT_ID  8 UINT 0x40 0x40 0x40 "PRESET_SAVE"
-  APPEND_PARAMETER    INDEX   8 UINT 0 5 0 "Slot"
-  SCREEN <%= target_name %> CONTROL
-
-COMMAND <%= target_name %> PRESET_RECALL BIG_ENDIAN "Recall PTZ from preset slot"
-  APPEND_PARAMETER    SYNC   16 UINT 0xAABB 0xAABB 0xAABB "Sync pattern"
-  APPEND_PARAMETER    LEN    16 UINT MIN MAX 6 "Packet length"
-  APPEND_ID_PARAMETER PKT_ID  8 UINT 0x41 0x41 0x41 "PRESET_RECALL"
-  APPEND_PARAMETER    INDEX   8 UINT 0 5 0 "Slot"
-  SCREEN <%= target_name %> CONTROL
-
-# -- Status -------------------------------------------------------------------
-
-# QUERIES lists which UVC controls the bridge reads to build STATUS, in tlm.txt
-# field order. Format: "unit,selector,length,signed[,count];..."
-# `count` (default 1) splits a multi-field control (e.g. PANTILT 8 bytes ->
-# pan + tilt i32s) into multiple STATUS fields.
-COMMAND <%= target_name %> GET_STATUS BIG_ENDIAN "Request a STATUS telemetry packet"
-  APPEND_PARAMETER    SYNC     16  UINT 0xAABB 0xAABB 0xAABB "Sync pattern"
-  APPEND_PARAMETER    LEN      16  UINT MIN MAX 0 "Packet length"
-  APPEND_ID_PARAMETER PKT_ID    8  UINT 0x7F 0x7F 0x7F "GET_STATUS"
-  APPEND_PARAMETER    QUERIES  4096 STRING "1,13,8,1,2;1,11,2,0;5,2,2,1;5,3,2,0;5,7,2,0;5,8,2,0;5,1,2,0" "Status query list"

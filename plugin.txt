@@ -15,4 +15,3 @@ VARIABLE uvc_insta360_enabled true
 TARGET UVC <%= uvc_target_name %>
 INTERFACE <%= uvc_target_name %>_INT openc3/interfaces/tcpip_client_interface.py <%= uvc_bridge_host %> <%= uvc_bridge_port %> <%= uvc_bridge_port %> 10.0 None LENGTH 16 16 0 1 BIG_ENDIAN 0 0xAABB None True
   MAP_TARGET <%= uvc_target_name %>
-  OPTION PERIODIC_CMD DONT_LOG 1.0 "<%= uvc_target_name %> GET_STATUS"

@@ -46,13 +46,3 @@ class Uvc:
 
     def sharpness(self, value):
         cmd(f"{self.target} SHARPNESS with VALUE {int(value)}")
-
-    def backlight(self, on):
-        cmd(f"{self.target} BACKLIGHT_COMPENSATION with VALUE {'ON' if on else 'OFF'}")
-
-    # Presets
-    def preset_save(self, index):
-        cmd(f"{self.target} PRESET_SAVE with INDEX {int(index)}")
-
-    def preset_recall(self, index):
-        cmd(f"{self.target} PRESET_RECALL with INDEX {int(index)}")
